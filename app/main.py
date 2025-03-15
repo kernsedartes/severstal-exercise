@@ -1,12 +1,11 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import datetime
 from typing import Optional, List
 from app.models import MetalRoll
 from app.schemas import MetalRollCreate, MetalRollResponse, StatsRequest
 from app.database import SessionLocal, engine, Base
-
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,7 +21,7 @@ def get_db():
 
 
 @app.post("/rolls/", response_model=MetalRollResponse)
-async def create_roll(roll: MetalRollCreate, db: Session = Depends(get_db)):
+async def create_roll(roll: MetalRollCreate, db: Session=Depends(get_db)):
     db_roll = MetalRoll(**roll.dict())
     db.add(db_roll)
     db.commit()
@@ -31,12 +30,12 @@ async def create_roll(roll: MetalRollCreate, db: Session = Depends(get_db)):
 
 
 @app.delete("/rolls/{roll_id}", response_model=MetalRollResponse)
-async def delete_roll(roll_id: int, db: Session = Depends(get_db)):
+async def delete_roll(roll_id: int, db: Session=Depends(get_db)):
     db_roll = db.query(MetalRoll).filter(MetalRoll.id == roll_id).first()
     if db_roll is None:
         raise HTTPException(status_code=404, detail="Roll not found")
     if db_roll.removed_date is None or db_roll.removed_date == "null":
-        db_roll.removed_date = date.today()
+        db_roll.removed_date = datetime.now()
         db.commit()
         db.refresh(db_roll)
         return db_roll
@@ -46,12 +45,12 @@ async def delete_roll(roll_id: int, db: Session = Depends(get_db)):
 
 @app.get("/getrolls/", response_model=List[MetalRollResponse])
 async def get_rolls(
-    id_range: Optional[str] = None,
-    weight_range: Optional[str] = None,
-    length_range: Optional[str] = None,
-    added_date_range: Optional[str] = None,
-    removed_date_range: Optional[str] = None,
-    db: Session = Depends(get_db)
+    id_range: Optional[str]=None,
+    weight_range: Optional[str]=None,
+    length_range: Optional[str]=None,
+    added_date_range: Optional[str]=None,
+    removed_date_range: Optional[str]=None,
+    db: Session=Depends(get_db)
 ):
     query = db.query(MetalRoll)
 
@@ -68,12 +67,12 @@ async def get_rolls(
         query = query.filter(MetalRoll.length.between(start, end))
 
     if added_date_range:
-        start, end = map(lambda x: date.fromisoformat(x),
+        start, end = map(lambda x: datetime.fromisoformat(x),
                          added_date_range.split("/"))
         query = query.filter(MetalRoll.added_date.between(start, end))
 
     if removed_date_range:
-        start, end = map(lambda x: date.fromisoformat(x),
+        start, end = map(lambda x: datetime.fromisoformat(x),
                          removed_date_range.split("/"))
         query = query.filter(MetalRoll.removed_date.between(start, end))
 
@@ -81,11 +80,16 @@ async def get_rolls(
 
 
 @app.post("/stats/")
-async def get_stats(stats_request=StatsRequest,
-                    db: Session = Depends(get_db)):
-    start_date = date.fromisoformat(stats_request.start_date)
-    end_date = (date.fromisoformat(stats_request.end_date)
-                if stats_request.end_date else date.now())
+async def get_stats(stats_request: StatsRequest,
+                    db: Session=Depends(get_db)):
+
+    try:
+        start_date = datetime.fromisoformat(stats_request.start_date)
+        end_date = (datetime.fromisoformat(stats_request.end_date)
+                    if stats_request.end_date else datetime.now())
+    except ValueError as e:
+        raise HTTPException(status_code=400,
+                            detail=f'Invalid date format: {e}')
 
     rolls = (db.query(MetalRoll).filter(MetalRoll.
              added_date.between(start_date, end_date)).all())
@@ -93,9 +97,9 @@ async def get_stats(stats_request=StatsRequest,
     added_rolls = len([roll for roll in rolls if roll.added_date >=
                        start_date and roll.added_date <= end_date])
 
-    removed_rolls = len([roll for roll in rolls if
-                         roll.removed_date and roll.removed_date >=
-                         start_date and roll.removed_date <= end_date])
+    removed_rolls = len([roll for roll in rolls if roll.removed_date and
+                         roll.added_date >= start_date and
+                         roll.added_date <= end_date])
 
     lengths = [roll.length for roll in rolls]
     weights = [roll.weight for roll in rolls]
@@ -111,11 +115,19 @@ async def get_stats(stats_request=StatsRequest,
 
     total_weight = sum(weights)
 
-    time_diffs = [((roll.removed_date - roll.added_date).total_seconds()
-                  for roll in rolls if roll.removed_date)]
+    time_diffs = [
+        (roll.removed_date - roll.added_date).total_seconds()
+        for roll in rolls if roll.removed_date and
+        roll.added_date >= start_date and
+        roll.added_date <= end_date
+    ]
 
-    max_time_diff = max(time_diffs) if time_diffs else 0
-    min_time_diff = min(time_diffs) if time_diffs else 0
+    if time_diffs:
+        max_time_diff = max(time_diffs)
+        min_time_diff = min(time_diffs)
+    else:
+        max_time_diff = 0
+        min_time_diff = 0
 
     return {
         "added_rolls": added_rolls,
@@ -127,6 +139,7 @@ async def get_stats(stats_request=StatsRequest,
         "max_weight": max_weight,
         "min_weight": min_weight,
         "total_weight": total_weight,
+        "len_time_diffs": len(time_diffs),
         "max_time_diff": max_time_diff,
         "min_time_diff": min_time_diff,
     }

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
 
@@ -12,8 +12,8 @@ class MetalRollResponse(BaseModel):
     id: int
     length: float
     weight: float
-    added_date: date
-    removed_date: Optional[date] = None
+    added_date: datetime
+    removed_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True

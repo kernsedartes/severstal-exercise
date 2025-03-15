@@ -1,18 +1,18 @@
-"""metal_rolls
+"""initial
 
-Revision ID: 18bfaf650f8e
+Revision ID: 679e9b7c9914
 Revises: 
-Create Date: 2025-03-15 22:10:02.912495
+Create Date: 2025-03-16 00:35:03.509907
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '18bfaf650f8e'
+revision: str = '679e9b7c9914'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -33,8 +33,8 @@ def downgrade() -> None:
     sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False),
     sa.Column('length', sa.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=False),
     sa.Column('weight', sa.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=False),
-    sa.Column('added_date', sa.DATE(), autoincrement=False, nullable=True),
-    sa.Column('removed_date', sa.DATE(), autoincrement=False, nullable=True),
+    sa.Column('added_date', postgresql.TIMESTAMP(), autoincrement=False, nullable=True),
+    sa.Column('removed_date', postgresql.TIMESTAMP(), autoincrement=False, nullable=True),
     sa.PrimaryKeyConstraint('id', name='metal_rolls_pkey')
     )
     op.create_index('ix_metal_rolls_id', 'metal_rolls', ['id'], unique=False)

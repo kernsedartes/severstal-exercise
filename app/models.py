@@ -1,5 +1,5 @@
-from datetime import date
-from sqlalchemy import Column, Integer, Float, Date
+from datetime import datetime
+from sqlalchemy import Column, Integer, Float, DateTime
 from .database import Base
 
 
@@ -9,5 +9,5 @@ class MetalRoll(Base):
     id = Column(Integer, primary_key=True, index=True)
     length = Column(Float, nullable=False)
     weight = Column(Float, nullable=False)
-    added_date = Column(Date, default=date.today())
-    removed_date = Column(Date, nullable=True)
+    added_date = Column(DateTime, default=datetime.now())
+    removed_date = Column(DateTime, nullable=True)
