@@ -2,7 +2,7 @@ from datetime import date
 from sqlalchemy import Column, Integer, Float, Date
 from .database import Base
 
-# Модель для рулона металла
+
 class MetalRoll(Base):
     __tablename__ = "metal_rolls"
 

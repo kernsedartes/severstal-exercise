@@ -7,12 +7,12 @@ from app.models import MetalRoll
 from app.schemas import MetalRollCreate, MetalRollResponse, StatsRequest
 from app.database import SessionLocal, engine, Base
 
-# Создаем таблицы в базе данных
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Зависимость для получения сессии базы данных
+
 def get_db():
     db = SessionLocal()
     try:
@@ -20,7 +20,7 @@ def get_db():
     finally:
         db.close()
 
-# Добавление нового рулона
+
 @app.post("/rolls/", response_model=MetalRollResponse)
 async def create_roll(roll: MetalRollCreate, db: Session = Depends(get_db)):
     db_roll = MetalRoll(**roll.dict())
@@ -29,7 +29,7 @@ async def create_roll(roll: MetalRollCreate, db: Session = Depends(get_db)):
     db.refresh(db_roll)
     return db_roll
 
-# Удаление рулона по id
+
 @app.delete("/rolls/{roll_id}", response_model=MetalRollResponse)
 async def delete_roll(roll_id: int, db: Session = Depends(get_db)):
     db_roll = db.query(MetalRoll).filter(MetalRoll.id == roll_id).first()
@@ -43,7 +43,7 @@ async def delete_roll(roll_id: int, db: Session = Depends(get_db)):
     else:
         raise HTTPException(status_code=404, detail="Roll is already deleted")
 
-# Получение списка рулонов с фильтрацией
+
 @app.get("/getrolls/", response_model=List[MetalRollResponse])
 async def get_rolls(
     id_range: Optional[str] = None,
@@ -68,28 +68,34 @@ async def get_rolls(
         query = query.filter(MetalRoll.length.between(start, end))
 
     if added_date_range:
-        start, end = map(lambda x: date.fromisoformat(x), added_date_range.split("/"))
+        start, end = map(lambda x: date.fromisoformat(x),
+                         added_date_range.split("/"))
         query = query.filter(MetalRoll.added_date.between(start, end))
 
     if removed_date_range:
-        start, end = map(lambda x: date.fromisoformat(x), removed_date_range.split("/"))
+        start, end = map(lambda x: date.fromisoformat(x),
+                         removed_date_range.split("/"))
         query = query.filter(MetalRoll.removed_date.between(start, end))
 
     return query.all()
 
-# Получение статистики за период
+
 @app.post("/stats/")
-async def get_stats(
-    stats_request = StatsRequest,
-    db: Session = Depends(get_db)
-):
+async def get_stats(stats_request=StatsRequest,
+                    db: Session = Depends(get_db)):
     start_date = date.fromisoformat(stats_request.start_date)
-    end_date = date.fromisoformat(stats_request.end_date) if stats_request.end_date else date.now()
+    end_date = (date.fromisoformat(stats_request.end_date)
+                if stats_request.end_date else date.now())
 
-    rolls = db.query(MetalRoll).filter(MetalRoll.added_date.between(start_date, end_date)).all()
+    rolls = (db.query(MetalRoll).filter(MetalRoll.
+             added_date.between(start_date, end_date)).all())
 
-    added_rolls = len([roll for roll in rolls if roll.added_date >= start_date and roll.added_date <= end_date])
-    removed_rolls = len([roll for roll in rolls if roll.removed_date and roll.removed_date >= start_date and roll.removed_date <= end_date])
+    added_rolls = len([roll for roll in rolls if roll.added_date >=
+                       start_date and roll.added_date <= end_date])
+
+    removed_rolls = len([roll for roll in rolls if
+                         roll.removed_date and roll.removed_date >=
+                         start_date and roll.removed_date <= end_date])
 
     lengths = [roll.length for roll in rolls]
     weights = [roll.weight for roll in rolls]
@@ -105,7 +111,9 @@ async def get_stats(
 
     total_weight = sum(weights)
 
-    time_diffs = [(roll.removed_date - roll.added_date).total_seconds() for roll in rolls if roll.removed_date]
+    time_diffs = [((roll.removed_date - roll.added_date).total_seconds()
+                  for roll in rolls if roll.removed_date)]
+
     max_time_diff = max(time_diffs) if time_diffs else 0
     min_time_diff = min(time_diffs) if time_diffs else 0
 
